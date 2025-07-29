@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Movie Likes</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+</head>
+<body>
+<h2>Movie Like System</h2>
+<div id="movies"></div>
+
+<script>
+const MOVIES = ["Iron Legend", "Shadow Code", "Dark Protocol"];
+const API_URL = "http://chameleon.rf.gd/like_api.php"; // ✅ replace this
+let userID = localStorage.getItem("uid");
+if (!userID) {
+userID = "uid-" + Math.random().toString(36).substr(2, 9);
+localStorage.setItem("uid", userID);
+}
+
+function renderMovies() {
+const container = document.getElementById("movies");
+MOVIES.forEach(movie => {
+const liked = localStorage.getItem(`liked-${movie}`) === "true";
+const icon = liked ? "fa-heart" : "fa-heart-o";
+
+container.innerHTML += `
+<div>
+<h3>${movie}</h3>
+<i class="fa ${icon}" id="icon-${movie}" onclick="handleLike('${movie}')"
+style="font-size:30px;cursor:pointer;color:red;"></i>
+<hr>
+</div>
+`;
+});
+}
+
+function handleLike(movie) {
+const icon = document.getElementById(`icon-${movie}`);
+const liked = localStorage.getItem(`liked-${movie}`) === "true";
+const newLiked = !liked;
+
+icon.className = "fa fa-spinner fa-spin";
+
+// Change icon after 300ms delay
+setTimeout(() => {
+icon.className = newLiked ? "fa fa-heart" : "fa fa-heart-o";
+localStorage.setItem(`liked-${movie}`, newLiked ? "true" : "false");
+
+fetch(`${API_URL}?movie=${encodeURIComponent(movie)}&uid=${encodeURIComponent(userID)}`)
+.then(res => res.text())
+.then(console.log)
+.catch(() => {
+alert("Error saving like");
+icon.className = liked ? "fa fa-heart" : "fa fa-heart-o";
+localStorage.setItem(`liked-${movie}`, liked ? "true" : "false");
+});
+}, 300);
+}
+
+renderMovies();
+</script>
+</body>
+</html>
