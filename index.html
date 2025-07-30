@@ -1,64 +1,217 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Movie Likes</title>
+<title>Movie Like System</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+font-family: Arial, sans-serif;
+background: #f4f4f4;
+padding: 20px;
+}
+h2 {
+text-align: center;
+margin-bottom: 15px;
+}
+.category {
+background: white;
+margin-bottom: 15px;
+padding: 15px;
+border-radius: 10px;
+box-shadow: 0 1px 5px rgba(0,0,0,0.1);
+}
+.category h3 {
+margin: 0;
+color: #333;
+cursor: pointer;
+}
+.movies {
+margin-top: 10px;
+display: none;
+max-height: 400px;
+overflow-y: auto;
+padding: 10px;
+}
+.movie {
+display: flex;
+justify-content: space-between;
+padding: 10px 0;
+border-bottom: 1px solid #eee;
+}
+.movie:last-child { border-bottom: none; }
+.movie i {
+cursor: pointer;
+color: red;
+}
+#searchBox {
+display: block;
+margin: 20px auto;
+padding: 10px;
+width: 90%;
+max-width: 400px;
+font-size: 16px;
+border: 1px solid #ccc;
+border-radius: 8px;
+}
+.movie-link {
+text-decoration: none;
+color: #0077cc;
+font-weight: bold;
+}
+.movie-link:hover {
+text-decoration: underline;
+color: #0055aa;
+cursor: pointer;
+}
+</style>
 </head>
 <body>
+
 <h2>Movie Like System</h2>
-<div id="movies"></div>
+<input type="text" id="searchBox" placeholder="Search movie name...">
+
+<div id="container"></div>
 
 <script>
-const MOVIES = ["Iron Legend", "Shadow Code", "Dark Protocol"];
-const API_URL = "http://chameleon.rf.gd/like_api.php"; // ✅ replace this
-let userID = localStorage.getItem("uid");
+const MOVIES = [
+{ name: "Iron Legend", category: "Movie (2025)", releaseDate: "2025-03-15" },
+{ name: "Code Eclipse", category: "Movie (2025)", releaseDate: "2025-05-20" },
+{ name: "Shadow Code", category: "Web Series (2025)", releaseDate: "2025-06-01" },
+{ name: "Chrono Agents", category: "Web Series (2025)", releaseDate: "2025-08-10" },
+{ name: "Dark Protocol", category: "Anime", releaseDate: "2025-04-04" },
+{ name: "Samurai Soul", category: "Anime", releaseDate: "2025-09-17" }
+];
+
+const API = "https://script.google.com/macros/s/AKfycbxgo-AdeZDf_grLExObcHysvyGePG9tQ1-qeWMomEQZlez6TNTXzJjjTkmT-7EPfK81qQ/exec"; // Replace
+let userID = localStorage.getItem("userID");
 if (!userID) {
 userID = "uid-" + Math.random().toString(36).substr(2, 9);
-localStorage.setItem("uid", userID);
+localStorage.setItem("userID", userID);
 }
 
-function renderMovies() {
-const container = document.getElementById("movies");
-MOVIES.forEach(movie => {
-const liked = localStorage.getItem(`liked-${movie}`) === "true";
-const icon = liked ? "fa-heart" : "fa-heart-o";
+const container = document.getElementById("container");
 
-container.innerHTML += `
-<div>
-<h3>${movie}</h3>
-<i class="fa ${icon}" id="icon-${movie}" onclick="handleLike('${movie}')"
-style="font-size:30px;cursor:pointer;color:red;"></i>
-<hr>
-</div>
+// Group movies by category
+const categories = {};
+MOVIES.forEach(movie => {
+if (!categories[movie.category]) categories[movie.category] = [];
+categories[movie.category].push(movie);
+});
+
+// Render categories and headers
+for (const category in categories) {
+const section = document.createElement("div");
+section.className = "category";
+section.innerHTML = `
+<h3 onclick="toggleCategory('${category}')">${category}</h3>
+<div class="movies" id="section-${category.replace(/[^a-zA-Z0-9]/g, '')}"></div>
 `;
+container.appendChild(section);
+}
+
+function toggleCategory(category) {
+const sectionId = `section-${category.replace(/[^a-zA-Z0-9]/g, '')}`;
+const section = document.getElementById(sectionId);
+const isLoaded = section.getAttribute("data-loaded") === "true";
+
+document.querySelectorAll(".movies").forEach(sec => {
+if (sec.id !== sectionId) sec.style.display = "none";
+});
+
+if (section.style.display === "block") {
+section.style.display = "none";
+} else {
+section.style.display = "block";
+if (!isLoaded) {
+loadMovies(category, sectionId);
+section.setAttribute("data-loaded", "true");
+}
+}
+}
+
+function loadMovies(category, sectionId) {
+const target = document.getElementById(sectionId);
+target.innerHTML = "Loading...";
+
+fetch(API + "?action=getLikes")
+.then(res => res.json())
+.then(data => {
+target.innerHTML = "";
+
+// Copy and sort movie list by like count (high to low)
+const movieList = [...categories[category]].sort((a, b) => {
+ const countA = data[a.name] || 0;
+ const countB = data[b.name] || 0;
+ return countB - countA;
+});
+
+movieList.forEach(movie => {
+ const name = movie.name;
+ const count = data[name] || 0;
+ const liked = localStorage.getItem(`liked-${name}`) === "true";
+
+ const div = document.createElement("div");
+ div.className = "movie";
+ div.setAttribute("data-name", name.toLowerCase());
+ div.innerHTML = `
+ <div style="flex:1;">
+<a href="https://www.google.com/search?q=${encodeURIComponent(name + ' movie')}" target="_blank" class="movie-link">${name}</a>
+<div style="font-size:12px;color:#666;">Release Date: ${movie.releaseDate}</div>
+ </div>
+ <span>
+<i class="fa ${liked ? "fa-heart" : "fa-heart-o"}" id="icon-${name}" onclick="handleLike('${name}')"></i>
+<span id="count-${name}">${count}</span>
+ </span>
+ `;
+ target.appendChild(div);
+});
+})
+.catch(() => {
+target.innerHTML = "Failed to load.";
 });
 }
 
+
 function handleLike(movie) {
 const icon = document.getElementById(`icon-${movie}`);
-const liked = localStorage.getItem(`liked-${movie}`) === "true";
-const newLiked = !liked;
+const countSpan = document.getElementById(`count-${movie}`);
+if (!icon || !countSpan) return;
+
+const wasLiked = localStorage.getItem(`liked-${movie}`) === "true";
+const current = parseInt(countSpan.textContent);
+const newLiked = !wasLiked;
 
 icon.className = "fa fa-spinner fa-spin";
 
-// Change icon after 300ms delay
 setTimeout(() => {
 icon.className = newLiked ? "fa fa-heart" : "fa fa-heart-o";
+countSpan.textContent = newLiked ? current + 1 : current - 1;
 localStorage.setItem(`liked-${movie}`, newLiked ? "true" : "false");
 
-fetch(`${API_URL}?movie=${encodeURIComponent(movie)}&uid=${encodeURIComponent(userID)}`)
-.then(res => res.text())
-.then(console.log)
-.catch(() => {
-alert("Error saving like");
-icon.className = liked ? "fa fa-heart" : "fa fa-heart-o";
-localStorage.setItem(`liked-${movie}`, liked ? "true" : "false");
+const formData = new FormData();
+formData.append("movie", movie);
+formData.append("uid", userID);
+formData.append("like", newLiked);
+
+fetch(API, {
+method: "POST",
+body: formData
 });
 }, 300);
 }
 
-renderMovies();
+
+document.getElementById("searchBox").addEventListener("input", function () {
+const query = this.value.toLowerCase();
+document.querySelectorAll(".movie").forEach(movie => {
+const name = movie.getAttribute("data-name");
+movie.style.display = name.includes(query) ? "flex" : "none";
+});
+});
 </script>
+
 </body>
 </html>
